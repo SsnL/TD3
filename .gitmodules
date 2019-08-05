@@ -1,0 +1,3 @@
+[submodule "utils/ssnl_utils"]
+	path = utils/ssnl_utils
+	url = git@github.com:SsnL/pytorch-utils.git
