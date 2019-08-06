@@ -65,7 +65,7 @@ def evaluate_policy_once(env, policy, eval_episodes=10, save_ani=None):
             return im, txt
 
         ani = matplotlib.animation.FuncAnimation(
-            fig, plot, frames=animations, blit=True, repeat=False, interval=5)
+            fig, plot, frames=animations, blit=True, repeat=False, interval=8)
         ani.save(save_ani, dpi=100)
         plt.close(fig)
         print("Animations saved to {}".format(save_ani))
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     # Max time steps to run environment for
     parser.add_argument("--max_timesteps", default=1e6, type=int)
     # Max time steps per episode to run environment for
-    parser.add_argument("--max_timesteps_per_episode", default=2000, type=int)
+    parser.add_argument("--max_timesteps_per_episode", default=1600, type=int)
     parser.add_argument("--expl_noise", default=0.1, type=float)                    # Std of Gaussian exploration noise
     # Batch size for both actor and critic
     parser.add_argument("--batch_size", default=100, type=int)

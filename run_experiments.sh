@@ -23,7 +23,10 @@ do
     --env_name "BipedalWalker-v2" \
     --train_seed $i \
     --eval_seed $((341232+i)) \
-    --start_timesteps 0
+    --max_timesteps 1200000 \
+    --max_timesteps_per_episode 2000 \
+    --batch_size 120
+    # --start_timesteps 0 \
 
     exit 0
 
