@@ -21,7 +21,8 @@ do
     python main.py \
     --policy_name "TD3" \
     --env_name "BipedalWalker-v2" \
-    --seed $i \
+    --train_seed $i \
+    --eval_seed $((341232+i)) \
     --start_timesteps 0
 
     exit 0

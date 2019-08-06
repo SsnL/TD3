@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 
 from .ssnl_utils import *  # noqa: F401
 
