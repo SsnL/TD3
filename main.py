@@ -177,7 +177,7 @@ def evaluate_policy_once(env, policy, desc, eval_episodes=10, save_ani=None):
             ii, rgb_arr = data
 
             im = ax.imshow(rgb_arr, aspect='equal', interpolation='nearest')
-            txt = ax.text(0, 0, '{}\tEpisode: {}/{}'.format(desc, ii, eval_episodes))
+            txt = ax.text(0, 0, '{}  Episode: {}/{}'.format(desc, ii, eval_episodes))
             return im, txt
 
         ani = matplotlib.animation.FuncAnimation(
