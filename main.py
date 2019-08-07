@@ -19,6 +19,23 @@ import utils
 from utils import state
 import algorithms
 
+from bipedal_walker import BipedalWalker
+
+gym.envs.register(
+    id='BipedalWalkerCustom-v2',
+    entry_point=BipedalWalker,
+    max_episode_steps=1600,
+    reward_threshold=300,
+)
+
+gym.envs.register(
+    id='BipedalWalkerHardcoreCustom-v2',
+    entry_point=BipedalWalker,
+    max_episode_steps=2000,
+    reward_threshold=300,
+    kwargs=dict(hardcore=True),
+)
+
 
 ####################
 # Output and logging
@@ -75,9 +92,18 @@ state.register_parse_hook(config_logging)
 #############
 
 with state.option_namespace('env'):
-    state.add_option("name", type=str, desc="OpenAI gym environment name")
+    state.add_option("name", type=str, default='BipedalWalker-v2', desc="OpenAI gym environment name")
     state.add_option("max_episode_steps", default=None, type=utils.types.make_optional(int),
                      desc='Max number of steps per episode')
+
+#######
+# Agent
+#######
+
+with state.option_namespace('agent'):
+    state.add_option("leg_down", type=float, default=8)
+    state.add_option("leg_width", type=float, default=8)
+    state.add_option("leg_height", type=float, default=34)
 
 ##########
 # Training
@@ -181,7 +207,8 @@ def eval_policy_loop(state, queue):
 
 
 def make_env_policy(state, train):
-    env = gym.make(state.env.name)
+    env = gym.make(state.env.name, LEG_DOWN_COEF=state.agent.leg_down,
+                   LEG_W_COEF=state.agent.leg_width, LEG_H_COEF=state.agent.leg_height)
     if state.env.max_episode_steps is not None:
         from gym.wrappers.time_limit import TimeLimit
         env = TimeLimit(env.unwrapped, max_episode_steps=state.env.max_episode_steps)
