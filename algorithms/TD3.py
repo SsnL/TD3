@@ -70,21 +70,17 @@ class TD3(object):
 
         self.max_action = max_action
 
-    def select_action(self, state):
+    def select_action(self, state, expl_noise_std=0):
         with torch.no_grad():
-            state = torch.as_tensor(state.reshape(1, -1), dtype=torch.get_default_dtype(), device=self.device)
-            return self.actor(state).cpu().detach().numpy().flatten()
+            state = torch.as_tensor(state, dtype=torch.get_default_dtype(), device=self.device).reshape(1, -1)
+            action = self.actor(state)
+            if expl_noise_std != 0:
+                action.add_(torch.empty_like(action).normal_(0, expl_noise_std))
+                action.clamp_(-self.max_action, self.max_action)
+            return action.cpu().detach().numpy().flatten()
 
-    def train(
-            self,
-            replay_buffer,
-            iterations,
-            batch_size=100,
-            discount=0.99,
-            tau=0.005,
-            policy_noise=0.2,
-            noise_clip=0.5,
-            policy_freq=2):
+    def train(self, replay_buffer, iterations, batch_size=100, discount=0.99,
+              tau=0.005, policy_noise=0.2, noise_clip=0.5, policy_freq=2):
 
         for it in range(iterations):
 
@@ -97,9 +93,8 @@ class TD3(object):
             reward = torch.as_tensor(r, dtype=torch.get_default_dtype(), device=self.device)
 
             # Select action according to policy and add clipped noise
-            noise = torch.empty(u.shape, device=self.device).normal_(0, policy_noise)
-            noise = noise.clamp(-noise_clip, noise_clip)
-            next_action = (self.actor_target(next_state) + noise).clamp(-self.max_action, self.max_action)
+            noise = torch.empty(u.shape, device=self.device).normal_(0, policy_noise).clamp_(-noise_clip, noise_clip)
+            next_action = (self.actor_target(next_state) + noise).clamp_(-self.max_action, self.max_action)
 
             # Compute the target Q value
             target_Q1, target_Q2 = self.critic_target(next_state, next_action)
