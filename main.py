@@ -109,7 +109,6 @@ state.add_option("start_timesteps", default=1e4, type=int,
                  desc='Number of steps that purely random policy is run for')
 state.add_option("expl_noise_std", default=0.1, type=float, desc='Std of Gaussian exploration noise')
 
-
 state.add_option("discount", default=0.99, type=float, desc='Discount factor')
 state.add_option("lr", default=0.001, type=float, desc='Learning rate')
 state.add_option("tau", default=0.005, type=float, desc='Target network update rate')
