@@ -8,6 +8,35 @@ default_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Paper: https://arxiv.org/abs/1802.09477
 
 
+def init_weights(net, init_type='normal', gain=0.02):
+    def init_func(m):
+        classname = m.__class__.__name__
+        if classname.find('BatchNorm2d') != -1:
+            if hasattr(m, 'weight') and m.weight is not None:
+                nn.init.normal_(m.weight.data, 1.0, gain)
+            if hasattr(m, 'bias') and m.bias is not None:
+                nn.init.constant_(m.bias.data, 0.0)
+        elif hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
+            if init_type == 'normal':
+                nn.init.normal_(m.weight.data, 0.0, gain)
+            elif init_type == 'xavier':
+                nn.init.xavier_normal_(m.weight.data, gain=gain)
+            elif init_type == 'xavier_uniform':
+                nn.init.xavier_uniform_(m.weight.data, gain=1.0)
+            elif init_type == 'kaiming':
+                nn.init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
+            elif init_type == 'orthogonal':
+                nn.init.orthogonal_(m.weight.data, gain=gain)
+            elif init_type == 'none':  # uses pytorch's default init method
+                m.reset_parameters()
+            else:
+                raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
+            if hasattr(m, 'bias') and m.bias is not None:
+                nn.init.constant_(m.bias.data, 0.0)
+
+    return net.apply(init_func)
+
+
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, max_action):
         super(Actor, self).__init__()
@@ -17,6 +46,7 @@ class Actor(nn.Module):
         self.l3 = nn.Linear(300, action_dim)
 
         self.max_action = max_action
+        init_weights(self, 'kaiming')
 
     def forward(self, x):
         x = F.relu(self.l1(x))
@@ -34,6 +64,7 @@ class Critic(nn.Module):
             self.l1 = nn.Linear(state_dim + action_dim, 400)
             self.l2 = nn.Linear(400, 300)
             self.l3 = nn.Linear(300, 1)
+            init_weights(self, 'kaiming')
 
         def forward(self, xu):
             x = F.relu(self.l1(xu))
@@ -114,7 +145,6 @@ class TD3(object):
 
             # Delayed policy updates
             if it % policy_freq == 0:
-
                 # Compute actor loss
                 actor_loss = -self.critic(state, self.actor(state), get_q2=False).mean()
 
