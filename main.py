@@ -9,19 +9,19 @@ import gym
 import utils
 from utils import state
 import evaluate
-from bipedal_walker import BipedalWalker
+import bipedal_walker
 
 
 gym.envs.register(
     id='BipedalWalkerCustom-v2',
-    entry_point=BipedalWalker,
+    entry_point=bipedal_walker.BipedalWalker,
     max_episode_steps=1600,
     reward_threshold=300,
 )
 
 gym.envs.register(
     id='BipedalWalkerHardcoreCustom-v2',
-    entry_point=BipedalWalker,
+    entry_point=bipedal_walker.BipedalWalker,
     max_episode_steps=2000,
     reward_threshold=300,
     kwargs=dict(hardcore=True),
@@ -84,7 +84,8 @@ state.register_parse_hook(config_logging)
 
 with state.option_namespace('env'):
     state.add_option("name", type=str, default='BipedalWalker-v2', desc="OpenAI gym environment name")
-    state.add_option("hardcore", type=bool, default=True, desc="Whether to be hardcore")
+    state.add_option("difficulty", type=bipedal_walker.Difficulty,
+                     default=bipedal_walker.Difficulty.EASY, desc="Difficulty")
     state.add_option("fix_terrain", type=bool, default=True, desc="Whether to fix terrain")
     state.add_option("max_episode_steps", default=None, type=utils.types.make_optional(int),
                      desc='Max number of steps per episode')
@@ -111,7 +112,6 @@ state.add_option("expl_noise_std", default=0.1, type=float, desc='Std of Gaussia
 
 state.add_option("discount", default=0.99, type=float, desc='Discount factor')
 state.add_option("lr", default=0.001, type=float, desc='Learning rate')
-state.add_option("tau", default=0.005, type=float, desc='Target network update rate')
 
 state.add_option("device", type=torch.device, default="cuda:0", desc='Training device')
 state.add_option("seed", default=0, type=int, desc='Training seed')
@@ -124,6 +124,8 @@ with state.option_namespace('eval'):
 
 state.add_option("policy_noise", default=0.2, type=float, desc='Noise added to target policy during critic update')
 state.add_option("noise_clip", default=0.5, type=float, desc='Range to clip target policy noise')
+
+state.add_option("tau", default=0.005, type=float, desc='Target network update rate')
 state.add_option("policy_freq", default=2, type=int, desc='Frequency of delayed policy updates')
 
 

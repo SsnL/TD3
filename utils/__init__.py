@@ -48,7 +48,7 @@ def make_env_policy(state, train):
                    agent_kwargs=dict(LEG_DOWN_COEF=state.agent.leg_down,
                                      LEG_W_COEF=state.agent.leg_width,
                                      LEG_H_COEF=state.agent.leg_height),
-                   hardcore=state.env.hardcore,
+                   difficulty=state.env.difficulty,
                    fix_terrain=state.env.fix_terrain)
     if state.env.max_episode_steps is not None:
         from gym.wrappers.time_limit import TimeLimit

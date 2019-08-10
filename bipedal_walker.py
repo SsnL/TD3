@@ -1,5 +1,6 @@
 import sys
 import math
+import enum
 
 import numpy as np
 import Box2D
@@ -175,11 +176,18 @@ class ContactDetector(contactListener):
                 leg.ground_contact = False
 
 
+class Difficulty(enum.Enum):
+    EASY = enum.auto()
+    MEDIUM = enum.auto()
+    HARD = enum.auto()
+
+
 class BipedalWalker(gym.Env, EzPickle):
-    def __init__(self, hardcore=False, fix_terrain=False, fix_init_force=False,
+    def __init__(self, difficulty=Difficulty.EASY,
+                 fix_terrain=False, fix_init_force=False,
                  agent_kwargs=dict(), env_kwargs=dict()):
         EzPickle.__init__(self)
-        self.hardcore = hardcore
+        self.difficulty = difficulty
         self.fix_terrain = fix_terrain
         self.fix_init_force = fix_init_force
         self.agent_config = AgentConfig(**agent_kwargs)
@@ -243,7 +251,7 @@ class BipedalWalker(gym.Env, EzPickle):
         self.legs = []
         self.joints = []
 
-    def _generate_terrain(self, hardcore):
+    def _generate_terrain(self, difficulty):
         if self.terrain and self.fix_terrain:
             return
 
@@ -333,12 +341,19 @@ class BipedalWalker(gym.Env, EzPickle):
             counter -= 1
             if counter == 0:
                 counter = self.np_random.randint(self.env_config.TERRAIN_GRASS / 2, self.env_config.TERRAIN_GRASS)
-                if state == GRASS and hardcore:
-                    state = self.np_random.randint(1, _STATES_)
-                    oneshot = True
-                else:
+                if difficulty == Difficulty.EASY:
                     state = GRASS
-                    oneshot = True
+                elif difficulty == Difficulty.MEDIUM:
+                    if state == GRASS and self.np_random.rand() < 0.25:  # 1/4 chance of going to non-GRASS
+                        state = self.np_random.randint(1, _STATES_)  # non-GRASS
+                    else:
+                        state = GRASS
+                else:  # difficulty == Difficulty.HARD:
+                    if state == GRASS:
+                        state = self.np_random.randint(1, _STATES_)  # non-GRASS
+                    else:
+                        state = GRASS
+                oneshot = True
 
         self.terrain_poly = []
         for i in range(self.env_config.TERRAIN_LENGTH-1):
@@ -386,7 +401,7 @@ class BipedalWalker(gym.Env, EzPickle):
         W = GameConfig.VIEWPORT_W / GameConfig.SCALE
         H = GameConfig.VIEWPORT_H / GameConfig.SCALE
 
-        self._generate_terrain(self.hardcore)
+        self._generate_terrain(self.difficulty)
         self._generate_clouds()
 
         init_x = self.env_config.TERRAIN_STEP*self.env_config.TERRAIN_STARTPAD/2
