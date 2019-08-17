@@ -4,28 +4,12 @@ import re
 import time
 
 import torch
-import gym
 
 import utils
+import utils.gym
+import utils.gym.envs.bipedal_walker
 from utils import state
 import evaluate
-import bipedal_walker
-
-
-gym.envs.register(
-    id='BipedalWalkerCustom-v2',
-    entry_point=bipedal_walker.BipedalWalker,
-    max_episode_steps=1600,
-    reward_threshold=300,
-)
-
-gym.envs.register(
-    id='BipedalWalkerHardcoreCustom-v2',
-    entry_point=bipedal_walker.BipedalWalker,
-    max_episode_steps=2000,
-    reward_threshold=300,
-    kwargs=dict(hardcore=True),
-)
 
 
 ####################
@@ -84,8 +68,9 @@ state.register_parse_hook(config_logging)
 
 with state.option_namespace('env'):
     state.add_option("name", type=str, default='BipedalWalker-v2', desc="OpenAI gym environment name")
-    state.add_option("difficulty", type=bipedal_walker.Difficulty,
-                     default=bipedal_walker.Difficulty.EASY, desc="Difficulty")
+    state.add_option("difficulty", type=utils.gym.envs.bipedal_walker.BipedalWalker.Difficulty,
+                     default=utils.gym.envs.bipedal_walker.BipedalWalker.Difficulty.EASY, desc="Difficulty")
+    state.add_option("terrain_seed", type=utils.types.make_optional(int), default=1243, desc="Terrain seed")
     state.add_option("fix_terrain", type=bool, default=True, desc="Whether to fix terrain")
     state.add_option("max_episode_steps", default=None, type=utils.types.make_optional(int),
                      desc='Max number of steps per episode')
@@ -104,7 +89,8 @@ with state.option_namespace('agent'):
 ##########
 
 # state.add_option("algorithm", default="TD3", desc="Policy algorithm name")
-state.add_option("batch_size", default=100, type=int, desc='Batch size for both actor and critic')
+state.add_option("init", default="kaiming", type=str, desc="Initialization method")
+state.add_option("batch_size", default=256, type=int, desc='Batch size for both actor and critic')
 state.add_option("max_timesteps", default=1e6, type=int, desc='Max total number of steps')
 state.add_option("start_timesteps", default=1e4, type=int,
                  desc='Number of steps that purely random policy is run for')
@@ -116,17 +102,24 @@ state.add_option("lr", default=0.001, type=float, desc='Learning rate')
 state.add_option("device", type=torch.device, default="cuda:0", desc='Training device')
 state.add_option("seed", default=0, type=int, desc='Training seed')
 
-with state.option_namespace('eval'):
-    state.add_option("device", type=torch.device, default="cuda:1", desc='Eval device')
-    state.add_option("seed", default=21320, type=int, desc='Eval seed')
-    state.add_option("freq", default=5e4, type=int, desc='Frequency for evaluation')
-    state.add_option("episodes", default=5, type=int, desc='Number of episodes per evaluation')
-
 state.add_option("policy_noise", default=0.2, type=float, desc='Noise added to target policy during critic update')
 state.add_option("noise_clip", default=0.5, type=float, desc='Range to clip target policy noise')
 
 state.add_option("tau", default=0.005, type=float, desc='Target network update rate')
 state.add_option("policy_freq", default=2, type=int, desc='Frequency of delayed policy updates')
+
+state.add_option("reward_scale", default=1, type=float, desc='Reward scaling')
+
+############
+# Evaluation
+############
+
+with state.option_namespace('eval'):
+    state.add_option("device", type=torch.device, default="cuda:0", desc='Eval device')
+    state.add_option("seed", default=21320, type=int, desc='Eval seed')
+    state.add_option("freq", default=5e4, type=int, desc='Frequency for evaluation')
+    state.add_option("episodes", default=3, type=int, desc='Number of episodes per evaluation')
+    state.add_option("dpi", default=120, type=int, desc='Video dpi')
 
 
 state.set_desc("TD3")
@@ -142,7 +135,7 @@ if __name__ == "__main__":
 
     replay_buffer = utils.ReplayBuffer()
 
-    save_and_eval = evaluate.start_eval_worker(state)
+    save_and_eval = evaluate.start_eval_worker(state, env)
     save_and_eval(policy, 0)  # eval untrained policy
 
     total_timesteps = 0
@@ -184,7 +177,9 @@ if __name__ == "__main__":
 
         # Perform action
         new_obs, reward, done, _ = env.step(action)
-        done_bool = int(done)  # 0 if episode_timesteps + 1 == env._max_episode_steps else float(done)
+        done_bool = int(done)
+        if env.max_episode_steps is not None and episode_timesteps + 1 == env.max_episode_steps:
+            done_bool = 0
         episode_reward += reward
 
         # Store data in replay buffer

@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -44,9 +46,7 @@ class Actor(nn.Module):
         self.l1 = nn.Linear(state_dim, 400)
         self.l2 = nn.Linear(400, 300)
         self.l3 = nn.Linear(300, action_dim)
-
         self.max_action = max_action
-        init_weights(self, 'kaiming')
 
     def forward(self, x):
         x = F.relu(self.l1(x))
@@ -64,7 +64,6 @@ class Critic(nn.Module):
             self.l1 = nn.Linear(state_dim + action_dim, 400)
             self.l2 = nn.Linear(400, 300)
             self.l3 = nn.Linear(300, 1)
-            init_weights(self, 'kaiming')
 
         def forward(self, xu):
             x = F.relu(self.l1(xu))
@@ -87,17 +86,24 @@ class Critic(nn.Module):
 
 
 class TD3(object):
-    def __init__(self, state_dim, action_dim, max_action, lr, device=default_device):
+    def __init__(self, state_dim, action_dim, max_action, lr, device=default_device, init="kaiming"):
         self.device = device
+
         self.actor = Actor(state_dim, action_dim, max_action).to(self.device)
         self.actor_target = Actor(state_dim, action_dim, max_action).to(self.device)
-        self.actor_target.load_state_dict(self.actor.state_dict())
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr, amsgrad=True)
 
         self.critic = Critic(state_dim, action_dim).to(self.device)
         self.critic_target = Critic(state_dim, action_dim).to(self.device)
-        self.critic_target.load_state_dict(self.critic.state_dict())
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr, amsgrad=True)
+
+        if os.path.isdir(init):
+            self.load(init)
+        else:
+            init_weights(self.actor, init)
+            init_weights(self.critic, init)
+            self.actor_target.load_state_dict(self.actor.state_dict())
+            self.critic_target.load_state_dict(self.critic.state_dict())
 
         self.max_action = max_action
 
@@ -130,7 +136,7 @@ class TD3(object):
             # Compute the target Q value
             target_Q1, target_Q2 = self.critic_target(next_state, next_action)
             target_Q = torch.min(target_Q1, target_Q2)
-            target_Q = reward + (done * discount * target_Q).detach()
+            target_Q = reward + done * discount * target_Q.detach()
 
             # Get current Q estimates
             current_Q1, current_Q2 = self.critic(state, action)
@@ -161,10 +167,23 @@ class TD3(object):
                     for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
                         target_param.data = torch.lerp(target_param, param, tau)
 
-    def save(self, filename, directory):
-        torch.save(self.actor.state_dict(), '%s/%s_actor.pth' % (directory, filename))
-        torch.save(self.critic.state_dict(), '%s/%s_critic.pth' % (directory, filename))
+    def save(self, directory):
+        torch.save(
+            dict(net=self.actor.state_dict(), optim=self.actor_optimizer.state_dict()),
+            os.path.join(directory, 'actor.pth'))
+        torch.save(
+            dict(net=self.critic.state_dict(), optim=self.critic_optimizer.state_dict()),
+            os.path.join(directory, 'critic.pth'))
 
-    def load(self, filename, directory):
-        self.actor.load_state_dict(torch.load('%s/%s_actor.pth' % (directory, filename), map_location=self.device))
-        self.critic.load_state_dict(torch.load('%s/%s_critic.pth' % (directory, filename), map_location=self.device))
+    def load(self, directory):
+        actor_state_dict = torch.load(os.path.join(directory, 'actor.pth'), map_location=self.device)
+        if set(actor_state_dict.keys()) == {'net', 'optim'}:
+            self.actor_optimizer.load_state_dict(actor_state_dict['optim'])
+            actor_state_dict = actor_state_dict['net']
+        self.actor.load_state_dict(actor_state_dict)
+        self.actor_target.load_state_dict(actor_state_dict)
+        critic_state_dict = torch.load(os.path.join(directory, 'critic.pth'), map_location=self.device)
+        if set(critic_state_dict.keys()) == {'net', 'optim'}:
+            self.critic_optimizer.load_state_dict(critic_state_dict['optim'])
+            critic_state_dict = critic_state_dict['net']
+        self.critic.load_state_dict(critic_state_dict)
